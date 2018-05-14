@@ -24,8 +24,7 @@ namespace GenerateHash
     {
         private static string path;
         //словарь хранить себя хеши
-        //public static Dictionary<string, string> HashDict = new Dictionary<string, string>();
-        public static List<string> HashList = new List<string>();
+        public static Dictionary<string, string> HashDict = new Dictionary<string, string>();       
 
         static void Main(string[] args)
         {           
@@ -75,7 +74,7 @@ namespace GenerateHash
 
 
             Action action = new Action(() => {
-                Thread.CurrentThread.Priority = ThreadPriority.Highest;
+                Thread.CurrentThread.Priority = ThreadPriority.Highest;               
                 Parallel.ForEach(files, (file) => {
                     if (!file.Contains(".git") && !file.Contains("GenerateHash")) //не счытивать файлы гита
                     {
@@ -85,8 +84,8 @@ namespace GenerateHash
                             //writer.WriteLine(GetHash_MD5(stream).ToString() + " - " + file_name); //записать на файле                        
                             count++;
                             Console.WriteLine(count);
-                            //HashDict.Add(file_name, GetHash_MD5(stream).ToString());
-                            HashList.Add(GetHash_MD5(stream).ToString() + " - " + file_name);
+                            //Console.WriteLine("Pririoty: {0}, ID: {1}", Thread.CurrentThread.Priority, Thread.CurrentThread.ManagedThreadId);
+                            HashDict.Add(file_name, GetHash_MD5(stream).ToString());                           
                         }
                     }
                 });
@@ -96,11 +95,13 @@ namespace GenerateHash
             taskParallel.Start();
             taskParallel.Wait();
 
+            //Отсортировать словарь по ключом
+            HashDict = HashDict.OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key, pair=>pair.Value);      
 
-            Task taskWriter = new Task(() => {
-                foreach(var item in HashList)
+            Task taskWriter = new Task(() => {  
+                foreach (var item in HashDict)
                 {
-                    writer.WriteLine(item);
+                    writer.WriteLine(item.Value + " - " + item.Key);
                 }
             });
 

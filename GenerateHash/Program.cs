@@ -24,23 +24,42 @@ namespace GenerateHash
     {
         private static string path;
         //словарь хранить себя хеши
-        public static Dictionary<string, string> HashDict = new Dictionary<string, string>();       
+        public static List<KeyValuePair<string, string>> HashDict = new List<KeyValuePair<string, string>>();       
 
         static void Main(string[] args)
-        {           
+        {
+            bool has_optional_arg = false;
             Console.BackgroundColor = ConsoleColor.DarkRed;
-
             Console.WriteLine("Generator Hashes");
-            Console.WriteLine("Set Directory: ");
 
-            path = Console.ReadLine();
-           
+            foreach(var arg in args)
+            {
+                if (arg == "-path")
+                    has_optional_arg = true;
+            }
+
+            if (has_optional_arg)
+            {
+                try
+                {
+                    path = args[2];
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+            else
+            {             
+                Console.WriteLine("Set Directory: ");
+                path = Console.ReadLine();
+                Console.WriteLine("\nNow we generating file hashes in the directory: \n{0}", path);
+                Console.WriteLine("\nPress Enter for continue: ");
+                Console.ReadLine();
+            }
+
             Console.WriteLine("\nNow we generating file hashes in the directory: \n{0}", path);
-            Console.WriteLine("\nPress Enter for continue: ");
-            Console.ReadLine();
-           
             GetGameFileHashes();
-
             Console.WriteLine("Finished hashing");
             Console.ReadLine();
         }
@@ -49,43 +68,26 @@ namespace GenerateHash
 
         public static void GetGameFileHashes()
         {
-            FileStream hash_file = new FileStream("File_Hashes.txt", FileMode.Truncate);
+            FileStream hash_file = new FileStream("Client_Mod_Hashes.txt", FileMode.Truncate);
             StreamWriter writer = new StreamWriter(hash_file);
             int count = 0;
 
             //получить польный список файлов(где-то 17-18к шт.)
-            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);        
 
-            /*foreach (var file in files)
-            {
-                if (!file.Contains(".git") && !file.Contains("GenerateHash")) //не счытивать файлы гита
-                {
-                    string file_name = file.ToString().Remove(0, Path.Length);
-                    using (var stream = File.OpenRead(file))
-                    {
-                        writer.WriteLine(GetHash_MD5(stream).ToString() + " - " + file_name); //записать на файле
-                        count++;
-                        Console.WriteLine(count);
-                        //HashDict.Add(file_name, GetHash_MD5(stream).ToString());
-                    }
-                }
-            }
-            */
-
-
+            //Многопоточный режим
             Action action = new Action(() => {
-                Thread.CurrentThread.Priority = ThreadPriority.Highest;               
+                Thread.CurrentThread.Priority = ThreadPriority.Highest;
+
                 Parallel.ForEach(files, (file) => {
                     if (!file.Contains(".git") && !file.Contains("GenerateHash")) //не счытивать файлы гита
                     {
-                        string file_name = file.ToString().Remove(0, path.Length);
+                        string file_name = Path.GetFileName(file);
                         using (var stream = File.OpenRead(file))
                         {
-                            //writer.WriteLine(GetHash_MD5(stream).ToString() + " - " + file_name); //записать на файле                        
-                            count++;
+                            KeyValuePair<string, string> keyValuePair = new KeyValuePair<string, string>(file_name, GetHash_MD5(stream).ToString());
+                            HashDict.Add(keyValuePair);
                             Console.WriteLine(count);
-                            //Console.WriteLine("Pririoty: {0}, ID: {1}", Thread.CurrentThread.Priority, Thread.CurrentThread.ManagedThreadId);
-                            HashDict.Add(file_name, GetHash_MD5(stream).ToString());                           
                         }
                     }
                 });
@@ -96,7 +98,7 @@ namespace GenerateHash
             taskParallel.Wait();
 
             //Отсортировать словарь по ключом
-            HashDict = HashDict.OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key, pair=>pair.Value);      
+            HashDict = HashDict.OrderBy(pair => pair.Key).ToList();             
 
             Task taskWriter = new Task(() => {  
                 foreach (var item in HashDict)
@@ -106,34 +108,7 @@ namespace GenerateHash
             });
 
             taskWriter.Start();
-            taskWriter.Wait();
-
-            /*Task task = new Task(() =>
-            {            
-                Thread.CurrentThread.Priority = ThreadPriority.Highest;
-                //Console.WriteLine("Pririoty: {0}", Thread.CurrentThread.Priority);
-
-                foreach (var file in files)
-                {
-                    if (!file.Contains(".git") && !file.Contains("GenerateHash")) //не счытивать файлы гита
-                    {
-                        string file_name = file.ToString().Remove(0, path.Length);
-                        using (var stream = File.OpenRead(file))
-                        {
-                            writer.WriteLine(GetHash_MD5(stream).ToString() + " - " + file_name); //записать на файле
-                            count++;
-                            Console.WriteLine(count);
-                            
-                            //HashDict.Add(file_name, GetHash_MD5(stream).ToString());
-                        }
-                    }
-                }
-            });
-            
-            task.Start();
-            task.Wait();
-            */
-
+            taskWriter.Wait();   
             writer.Close();
         }
 

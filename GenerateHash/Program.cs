@@ -60,6 +60,9 @@ namespace GenerateHash
 
             Console.WriteLine("\nNow we generating file hashes in the directory: \n{0}", path);
             GetGameFileHashes();
+
+            WriteHashListAsync("HashList.md5", HashDict);
+
             Console.WriteLine("Finished hashing");
             Console.ReadLine();
         }
@@ -67,9 +70,7 @@ namespace GenerateHash
        
 
         public static void GetGameFileHashes()
-        {
-            FileStream hash_file = new FileStream("Client_Mod_Hashes.txt", FileMode.Truncate);
-            StreamWriter writer = new StreamWriter(hash_file);
+        {           
             int count = 0;
 
             //получить польный список файлов(где-то 17-18к шт.)
@@ -87,7 +88,7 @@ namespace GenerateHash
                         {
                             KeyValuePair<string, string> keyValuePair = new KeyValuePair<string, string>(file_name, GetHash_MD5(stream).ToString());
                             HashDict.Add(keyValuePair);
-                            Console.WriteLine(count);
+                            Console.WriteLine(++count);
                         }
                     }
                 });
@@ -98,18 +99,24 @@ namespace GenerateHash
             taskParallel.Wait();
 
             //Отсортировать словарь по ключом
-            HashDict = HashDict.OrderBy(pair => pair.Key).ToList();             
+            HashDict = HashDict.OrderBy(pair => pair.Key).ToList();                        
+        }
 
-            Task taskWriter = new Task(() => {  
-                foreach (var item in HashDict)
+        private static async void WriteHashListAsync(string file_name, List<KeyValuePair<string, string>> HashList)
+        {
+            FileStream hash_file = new FileStream(file_name, FileMode.Create);
+            StreamWriter writer = new StreamWriter(hash_file);
+
+            Action action = new Action(() =>
+            {
+                foreach (var item in HashList)
                 {
                     writer.WriteLine(item.Value + " - " + item.Key);
                 }
+                writer.Close();
             });
 
-            taskWriter.Start();
-            taskWriter.Wait();   
-            writer.Close();
+            await Task.Run(action);
         }
 
         //получить md5 хеша
